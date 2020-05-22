@@ -37,13 +37,15 @@ class StorageDatabaseHelper {
     let COL_ID: String = "id"
     let COL_NAME: String = "name"
     let COL_VALUE: String = "value"
+    let dbPointer: OpaquePointer?
+
     // define the path for the database
     let path: String = NSSearchPathForDirectoriesInDomains(
         .documentDirectory, .userDomainMask, true
         ).first!
-    
+
     // init function
-    
+
     init(databaseName: String,tableName: String, encrypted:Bool, mode: String, secret:String = "", newsecret:String = "") throws {
         print("path: \(path)")
         self.tableName = tableName
@@ -77,7 +79,7 @@ class StorageDatabaseHelper {
         } else if encrypted && mode == "newsecret" && secret.count > 0 && newsecret.count > 0 {
             do {
                 try db = UtilsSQLite.connection(filename: "\(path)/\(self.dbName)",readonly: false,key: secret)
-                
+
                 let keyStatementString = """
                 PRAGMA rekey = '\(newsecret)';
                 """
@@ -180,9 +182,9 @@ class StorageDatabaseHelper {
             }
         }
     }
-    
+
     // Public function
-    
+
     public func set(data:Data) -> Bool {
         var ret: Bool = false
         let db: OpaquePointer?
@@ -221,18 +223,20 @@ class StorageDatabaseHelper {
     public func get(name:String) -> Data? {
         var resArray: Array<Data> = []
         var retData: Data = Data()
-        let db: OpaquePointer?
-        do {
-            try db = UtilsSQLite.getReadableDatabase(filename: "\(path)/\(self.dbName)",secret:self.secret)
-        } catch let error {
-           print("Error: \(error)")
-           return nil
+
+        if(!dbPointer) {
+            do {
+                try dbPointer = UtilsSQLite.getReadableDatabase(filename: "\(path)/\(self.dbName)",secret:self.secret)
+            } catch let error {
+               print("Error: \(error)")
+               return nil
+            }
         }
         let getString: String = """
         SELECT * FROM \(tableName) WHERE \(COL_NAME) = "\(name)";
         """
         var getStatement: OpaquePointer? = nil
-        if sqlite3_prepare_v2(db, getString, -1, &getStatement, nil) == SQLITE_OK {
+        if sqlite3_prepare_v2(dbPointer, getString, -1, &getStatement, nil) == SQLITE_OK {
             while (sqlite3_step(getStatement) == SQLITE_ROW ) {
                 var rowData: Data = Data()
                 rowData.id = Int64(sqlite3_column_int(getStatement, 0))
@@ -270,7 +274,7 @@ class StorageDatabaseHelper {
            print("Error: \(error)")
            return false
         }
-        
+
         let updateStatementString = """
         UPDATE \(tableName) SET \(COL_VALUE) = ?
         WHERE \(COL_NAME) = ?;
@@ -304,7 +308,7 @@ class StorageDatabaseHelper {
            return false
         }
         let deleteStatementStirng = "DELETE FROM \(tableName) WHERE \(COL_NAME) = '\(name)';"
-        
+
         var deleteStatement: OpaquePointer? = nil
         if sqlite3_prepare_v2(db, deleteStatementStirng, -1, &deleteStatement, nil) == SQLITE_OK {
           if sqlite3_step(deleteStatement) == SQLITE_DONE {
@@ -328,7 +332,7 @@ class StorageDatabaseHelper {
            return false
         }
         let deleteStatementStirng = "DELETE FROM \(tableName);"
-        
+
         var deleteStatement: OpaquePointer? = nil
         if sqlite3_prepare_v2(db, deleteStatementStirng, -1, &deleteStatement, nil) == SQLITE_OK {
           if sqlite3_step(deleteStatement) == SQLITE_DONE {
@@ -345,7 +349,7 @@ class StorageDatabaseHelper {
         }
         return ret
     }
-    
+
     func setTable(tblName: String) -> Bool {
         var ret: Bool = false
         let db: OpaquePointer?
@@ -366,7 +370,7 @@ class StorageDatabaseHelper {
         }
         return ret
     }
-    
+
     func keys() -> Array<String>? {
         var retArray: Array<String> = Array<String>()
         let db: OpaquePointer?
@@ -389,7 +393,7 @@ class StorageDatabaseHelper {
         sqlite3_finalize(getKeysStatement)
         return retArray
     }
-    
+
     func values() -> Array<String>? {
         var retArray: Array<String> = Array<String>()
         let db: OpaquePointer?
@@ -412,7 +416,7 @@ class StorageDatabaseHelper {
         sqlite3_finalize(getValuesStatement)
         return retArray
     }
-    
+
     func keysvalues() -> Array<Data>? {
         var retArray: Array<Data> = Array<Data>()
         let db: OpaquePointer?
@@ -448,7 +452,7 @@ class StorageDatabaseHelper {
             print("createTable: Error CREATE TABLE statement could not be prepared.")
         }
         sqlite3_finalize(createTableStatement)
-        
+
         return ret
     }
     private func createIndex(db: OpaquePointer, tableName: String, colName:String, ifNotExists: Bool) -> Bool {
