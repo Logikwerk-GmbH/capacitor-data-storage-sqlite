@@ -37,7 +37,7 @@ class StorageDatabaseHelper {
     let COL_ID: String = "id"
     let COL_NAME: String = "name"
     let COL_VALUE: String = "value"
-    let dbPointer: OpaquePointer?
+    var dbPointer: OpaquePointer?
 
     // define the path for the database
     let path: String = NSSearchPathForDirectoriesInDomains(
@@ -224,7 +224,7 @@ class StorageDatabaseHelper {
         var resArray: Array<Data> = []
         var retData: Data = Data()
 
-        if(!dbPointer) {
+        if(dbPointer==nil) {
             do {
                 try dbPointer = UtilsSQLite.getReadableDatabase(filename: "\(path)/\(self.dbName)",secret:self.secret)
             } catch let error {
